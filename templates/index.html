@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic-Tac-Toe — Minimax & Alpha-Beta Pruning</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Top Global Bar with One-Click Analysis Toggle -->
+  <header class="app-top-nav">
+    <div class="nav-branding">
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-title">Tic-Tac-Toe AI</span>
+      <span class="nav-subtitle">Adversarial Search (Minimax & Alpha-Beta)</span>
+    </div>
+    <div class="nav-actions">
+      <a href="/presentation.pdf" target="_blank" rel="noopener noreferrer" class="btn btn-nav-presentation" title="Open Project Presentation (PDF)">
+        <span class="btn-icon">📄</span>
+        <span class="btn-label">View Presentation (PDF)</span>
+      </a>
+      <button id="toggleAnalysisBtn" class="btn btn-nav-toggle" title="Toggle AI Analysis Window">
+        <span class="toggle-icon">📊</span>
+        <span class="toggle-label">Hide AI Analysis</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-layout analysis-open" id="appLayout">
+    
+    <!-- LEFT PANE: Playable Game & Scoreboard (Centered when analysis is hidden) -->
+    <section class="left-pane" id="leftPane">
+      <div class="left-content">
+        
+        <!-- Score Board Card (Theme: #3d1515) -->
+        <div class="card score-card">
+          <div class="score-card-header">
+            <div class="card-title-group">
+              <span class="icon">🏆</span>
+              <h2>Score Board</h2>
+            </div>
+            <button id="resetScoreBtn" class="btn btn-sm btn-ghost" title="Reset Scoreboard">Reset Scores</button>
+          </div>
+          
+          <div class="score-stats">
+            <div class="score-stat-box">
+              <span class="stat-label">Human (X)</span>
+              <span class="stat-value" id="humanWinsVal">0</span>
+            </div>
+            <div class="score-stat-box">
+              <span class="stat-label">AI (O)</span>
+              <span class="stat-value" id="aiWinsVal">0</span>
+            </div>
+            <div class="score-stat-box">
+              <span class="stat-label">Draws</span>
+              <span class="stat-value" id="drawsVal">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Game Card (Theme: #3d1515) -->
+        <div class="card game-card">
+          <div class="game-header">
+            <div class="header-main">
+              <h1>Tic-Tac-Toe</h1>
+              <p class="subtitle">Foundation in AI: Adversarial Search</p>
+            </div>
+            <div class="turn-badge" id="turnBadge">
+              <span class="indicator-dot"></span>
+              <span id="turnText">Your Turn</span>
+            </div>
+          </div>
+
+          <!-- Controls Bar (Clean 2-Row Layout, No Overflow) -->
+          <div class="game-controls-bar">
+            <!-- Algorithm Toggle -->
+            <div class="control-group">
+              <label for="algorithmSelect">AI Algorithm:</label>
+              <select id="algorithmSelect" class="form-select">
+                <option value="alphabeta" selected>Minimax + Alpha-Beta</option>
+                <option value="minimax">Minimax (No Pruning)</option>
+              </select>
+            </div>
+
+            <!-- Difficulty Selector -->
+            <div class="control-group">
+              <label for="difficultySelect">Difficulty:</label>
+              <select id="difficultySelect" class="form-select">
+                <option value="hard" selected>Hard (Full Depth, Unbeatable)</option>
+                <option value="medium">Medium (Depth-Limited: 3)</option>
+                <option value="easy">Easy (Random Mistakes)</option>
+              </select>
+            </div>
+
+            <!-- First Player Toggle (Full Width Row - Never Clipped) -->
+            <div class="control-group full-width-control">
+              <label for="starterSelect">First Move:</label>
+              <select id="starterSelect" class="form-select">
+                <option value="human" selected>Human Plays First (X)</option>
+                <option value="ai">AI Plays First (O)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 3x3 Game Board -->
+          <div class="board-wrapper">
+            <div class="board" id="gameBoard" role="grid" aria-label="Tic Tac Toe Board">
+              <button class="cell" data-index="0" aria-label="Cell 0"></button>
+              <button class="cell" data-index="1" aria-label="Cell 1"></button>
+              <button class="cell" data-index="2" aria-label="Cell 2"></button>
+              <button class="cell" data-index="3" aria-label="Cell 3"></button>
+              <button class="cell" data-index="4" aria-label="Cell 4"></button>
+              <button class="cell" data-index="5" aria-label="Cell 5"></button>
+              <button class="cell" data-index="6" aria-label="Cell 6"></button>
+              <button class="cell" data-index="7" aria-label="Cell 7"></button>
+              <button class="cell" data-index="8" aria-label="Cell 8"></button>
+            </div>
+          </div>
+
+          <!-- Status Line & Action -->
+          <div class="game-footer">
+            <div class="status-box" id="statusMessage">
+              Your turn (Click an empty square)
+            </div>
+            <div class="game-buttons">
+              <button id="newGameBtn" class="btn btn-primary">
+                <span>🔄</span> New Game
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="legend-note">
+          <p>💡 Human plays <strong>X</strong> and AI plays <strong>O</strong>. Click <strong>"Show/Hide AI Analysis"</strong> to toggle the pruning breakdown.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- DRAGGABLE DIVIDER (Constrained Range) -->
+    <div class="pane-divider" id="paneDivider" title="Drag to adjust pane split">
+      <button class="divider-arrow left-arrow" id="collapseBtn" title="Toggle AI Analysis">◂</button>
+      <div class="divider-grip">
+        <span></span><span></span><span></span>
+      </div>
+      <button class="divider-arrow right-arrow" id="expandBtn" title="Toggle AI Analysis">▸</button>
+    </div>
+
+    <!-- RIGHT PANE: Educational AI Analysis -->
+    <aside class="right-pane" id="rightPane">
+      <div class="right-content">
+        
+        <!-- Header Banner with Close Button -->
+        <header class="analysis-header">
+          <div class="analysis-title-group">
+            <div class="tag-badge">AI EXPLAINABILITY</div>
+            <h2>Minimax & Alpha-Beta Pruning Analysis</h2>
+          </div>
+          <div class="header-right-actions">
+            <div class="stats-toggle-group">
+              <button class="tab-btn active" id="tabMoveBtn">Current Move</button>
+              <button class="tab-btn" id="tabGameBtn">Game Cumulative</button>
+            </div>
+            <button id="closeAnalysisBtn" class="btn btn-xs btn-close-pane" title="Hide AI Analysis">✕ Hide</button>
+          </div>
+        </header>
+
+        <!-- SECTION A: Performance Comparison Table -->
+        <div class="analysis-card">
+          <div class="card-section-title">
+            <h3>📊 Performance Comparison</h3>
+            <span class="sub-badge" id="perfViewBadge">Move #1</span>
+          </div>
+          <div class="table-container">
+            <table class="comparison-table" id="comparisonTable">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Minimax (No Pruning)</th>
+                  <th class="highlight-col">Minimax + Alpha-Beta</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="metric-name">
+                    <strong>Nodes Explored</strong>
+                    <span class="metric-desc">Total game tree states evaluated</span>
+                  </td>
+                  <td id="mmNodesCell">—</td>
+                  <td id="abNodesCell" class="highlight-col">—</td>
+                </tr>
+                <tr>
+                  <td class="metric-name">
+                    <strong>Execution Time</strong>
+                    <span class="metric-desc">Computation duration (ms)</span>
+                  </td>
+                  <td id="mmTimeCell">—</td>
+                  <td id="abTimeCell" class="highlight-col">—</td>
+                </tr>
+                <tr>
+                  <td class="metric-name">
+                    <strong>Pruned Branches</strong>
+                    <span class="metric-desc">Subtrees skipped when β ≤ α</span>
+                  </td>
+                  <td id="mmPrunedCell">0</td>
+                  <td id="abPrunedCell" class="highlight-col">—</td>
+                </tr>
+                <tr class="summary-row">
+                  <td class="metric-name">
+                    <strong>Search Efficiency</strong>
+                    <span class="metric-desc">% reduction in explored nodes</span>
+                  </td>
+                  <td id="mmEffCell">0.0%</td>
+                  <td id="abEffCell" class="highlight-col efficiency-val">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SECTION B: Decision Tree Visualization with Level Toggle & Fullscreen Button -->
+        <div class="analysis-card tree-card">
+          <div class="card-section-title">
+            <div>
+              <h3>🌳 Decision Tree Visualization</h3>
+              <p class="section-subtitle">Visualizing AI (MAX) & Human (MIN) lookahead nodes with cutoffs</p>
+            </div>
+            <div class="tree-controls">
+              <button id="resetTreeFocusBtn" class="btn btn-xs btn-ghost-dark" title="Reset View to Root" style="display: none;">View Root</button>
+              <button id="fullscreenTreeBtn" class="btn btn-xs btn-fullscreen" title="Open Fullscreen Graph">⛶ Fullscreen</button>
+            </div>
+          </div>
+
+
+
+          <!-- Tree Visual Legend -->
+          <div class="tree-legend">
+            <div class="legend-item">
+              <span class="legend-dot solid"></span>
+              <span>Evaluated node</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot dashed"></span>
+              <span>Pruned (not evaluated)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-badge max-badge">MAX</span>
+              <span>AI Turn</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-badge min-badge">MIN</span>
+              <span>Human Turn</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-star">★</span>
+              <span>Chosen Move</span>
+            </div>
+          </div>
+
+          <!-- Interactive Tree Canvas Container -->
+          <div class="tree-viewport" id="treeViewport">
+            <svg id="treeSvg" class="tree-svg"></svg>
+            <div id="treeEmptyMessage" class="tree-placeholder">
+              <span class="placeholder-icon">♟️</span>
+              <p>Make a move to see the live Minimax search tree with Alpha-Beta pruning!</p>
+            </div>
+          </div>
+
+          <div class="tree-hint">
+            <span>💡 Click any candidate node (Depth 1) to inspect its specific subtree branches. Click <strong>⛶ Fullscreen</strong> for expanded view.</span>
+          </div>
+        </div>
+
+        <!-- SECTION C: Candidate Move Scores & Mini-Board -->
+        <div class="analysis-card">
+          <div class="card-section-title">
+            <h3>🎯 Candidate Move Scores</h3>
+            <span class="sub-badge">Root Evaluation</span>
+          </div>
+
+          <div class="candidate-split">
+            <!-- Mini Board Heatmap -->
+            <div class="mini-board-wrapper">
+              <div class="mini-board-label">Candidate Move Map:</div>
+              <div class="mini-board" id="miniBoard">
+                <div class="mini-cell" data-idx="0"></div>
+                <div class="mini-cell" data-idx="1"></div>
+                <div class="mini-cell" data-idx="2"></div>
+                <div class="mini-cell" data-idx="3"></div>
+                <div class="mini-cell" data-idx="4"></div>
+                <div class="mini-cell" data-idx="5"></div>
+                <div class="mini-cell" data-idx="6"></div>
+                <div class="mini-cell" data-idx="7"></div>
+                <div class="mini-cell" data-idx="8"></div>
+              </div>
+              <div class="mini-legend">
+                <span class="mini-tag chosen">★ Chosen Move</span>
+                <span class="mini-tag candidate">Evaluated Move</span>
+              </div>
+            </div>
+
+            <!-- List of Candidate Move Values -->
+            <div class="candidate-list-wrapper">
+              <div class="candidate-list-header">
+                <span>Move</span>
+                <span>Score</span>
+                <span>Status</span>
+              </div>
+              <div class="candidate-list" id="candidateList">
+                <div class="candidate-empty">No moves evaluated yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION E: Chart - Nodes Explored History with Fullscreen Button -->
+        <div class="analysis-card">
+          <div class="card-section-title">
+            <h3>📈 Nodes Explored Comparison</h3>
+            <div class="chart-controls">
+              <span class="sub-badge">Per Move</span>
+              <button id="fullscreenChartBtn" class="btn btn-xs btn-fullscreen" title="Open Fullscreen Chart">⛶ Fullscreen</button>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <svg id="nodeChartSvg" class="node-chart-svg" viewBox="0 0 500 180" preserveAspectRatio="none"></svg>
+            <div class="chart-legend">
+              <div class="chart-legend-item"><span class="chart-box mm-box"></span> Minimax</div>
+              <div class="chart-legend-item"><span class="chart-box ab-box"></span> Minimax + Alpha-Beta</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION D: How It Works Educational Box (Detailed Scores & Cutoff Explanation) -->
+        <div class="analysis-card how-it-works-card">
+          <div class="card-section-title">
+            <h3>📖 How It Works: Minimax, Scores & Pruning</h3>
+          </div>
+          <div class="educational-text">
+            <div class="concept-block">
+              <h4>1. What Do the Scores Mean? (Why +8, 0, or -8?)</h4>
+              <p>
+                In adversarial search, scores quantify how favorable a state is for the AI:
+                <br>• <strong>Positive Score (+8, +9):</strong> AI is guaranteed to win! Formula: <code>+10 - depth</code>. A win at depth 2 gives <code>10 - 2 = +8</code>. AI prefers higher scores because earlier wins mean smaller depth and higher values.
+                <br>• <strong>Score 0:</strong> Optimal play from both sides guarantees a <strong>Draw</strong>. In Tic-Tac-Toe, flawless play always evaluates to <code>0</code>.
+                <br>• <strong>Negative Score (-8, -9):</strong> If AI makes this move, Human has an unstoppable winning path! Formula: <code>depth - 10</code>. A human win 2 turns later gives <code>2 - 10 = -8</code>. AI (the MAX player) actively avoids negative scores.
+              </p>
+            </div>
+
+            <div class="concept-block">
+              <h4>2. Alpha (&alpha;) and Beta (&beta;) Bounds</h4>
+              <p>
+                <strong>&alpha; (Alpha):</strong> The highest score guaranteed to the <strong>MAX (AI)</strong> player so far (starts at -&infin;).<br>
+                <strong>&beta; (Beta):</strong> The lowest score guaranteed to the <strong>MIN (Human)</strong> player so far (starts at +&infin;).
+              </p>
+            </div>
+
+            <div class="concept-block highlight-condition">
+              <h4>3. The Pruning Condition: &beta; &le; &alpha;</h4>
+              <p>
+                Whenever <strong>&beta; &le; &alpha;</strong>, a branch cutoff occurs! 
+                The minimizing parent above already has a path with a score &le; &beta;, so it would never allow play to enter this subtree where MAX could get &ge; &alpha;. 
+                Searching this branch further is mathematically redundant—pruning it drops search space by <strong>96.2%</strong> while guaranteeing the exact same optimal move!
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- FULLSCREEN MODAL OVERLAY FOR DECISION TREE & CHART -->
+  <div id="fullscreenModal" class="fullscreen-modal" style="display: none;">
+    <div class="fullscreen-header">
+      <div class="fullscreen-title-group">
+        <h2 id="fullscreenTitle">🌳 Decision Tree Visualization (Fullscreen)</h2>
+        <span class="fullscreen-subtitle" id="fullscreenSubtitle">Adversarial Search Tree & Alpha-Beta Cutoffs</span>
+      </div>
+      <div class="fullscreen-actions">
+        <button id="fullscreenResetFocusBtn" class="btn btn-xs btn-ghost-dark" style="display: none;">View Root</button>
+        <button id="exitFullscreenBtn" class="btn btn-sm btn-back-normal">
+          <span>↩</span> Back to Normal
+        </button>
+      </div>
+    </div>
+
+    <div class="fullscreen-body" id="fullscreenBody">
+      <!-- Cloned or dynamically scaled SVG rendered here -->
+    </div>
+    <div class="fullscreen-footer">
+      <span class="esc-hint">💡 Press <strong>ESC</strong> or click <strong>"Back to Normal"</strong> to return to standard view.</span>
+    </div>
+  </div>
+
+  <!-- Sleek Floating Tooltip for Tree Nodes on Hover -->
+  <div id="treeTooltip" class="tree-tooltip" style="display: none;"></div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
+
